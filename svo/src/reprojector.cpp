@@ -67,17 +67,17 @@ void Reprojector::reprojectMap(
 {
   resetGrid();
 
-  // Identify those Keyframes which share a common field of view.
+  //<<"dentify those Keyframes which share a common field of view."<<std::endl;
   SVO_START_TIMER("reproject_kfs");
   list< pair<FramePtr,double> > close_kfs;
   map_.getCloseKeyframes(frame, close_kfs);
 
-  // Sort KFs with overlap according to their closeness
+  //<<"Sort KFs with overlap according to their closeness"<<std::endl;
   close_kfs.sort(boost::bind(&std::pair<FramePtr, double>::second, _1) <
                  boost::bind(&std::pair<FramePtr, double>::second, _2));
 
   // Reproject all mappoints of the closest N kfs with overlap. We only store
-  // in which grid cell the points fall.
+  //<<" in which grid cell the points fall.";
   size_t n = 0;
   overlap_kfs.reserve(options_.max_n_kfs);
   for(auto it_frame=close_kfs.begin(), ite_frame=close_kfs.end();

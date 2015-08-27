@@ -48,6 +48,16 @@ void FrameHandlerMono::initialize()
       &MapPointCandidates::newCandidatePoint, &map_.point_candidates_, _1, _2);
   depth_filter_ = new DepthFilter(feature_detector, depth_filter_cb);
   depth_filter_->startThread();
+
+}
+
+void FrameHandlerMono::InitPose(SE3 pose)
+{
+   init_pose = pose;
+   flag_init = 1;
+   stage_ = STAGE_SECOND_FRAME;
+   new_frame_ = last_frame_;
+
 }
 
 FrameHandlerMono::~FrameHandlerMono()
@@ -57,23 +67,26 @@ FrameHandlerMono::~FrameHandlerMono()
 
 void FrameHandlerMono::addImage(const cv::Mat& img, const double timestamp)
 {
+
+  //<<"entering imagecallback"<<std::endl;
   if(!startFrameProcessingCommon(timestamp))
     return;
 
   // some cleanup from last iteration, can't do before because of visualization
   core_kfs_.clear();
   overlap_kfs_.clear();
-
+////<<"entering imagecallback2"<<std::endl;
   // create new frame
   SVO_START_TIMER("pyramid_creation");
   new_frame_.reset(new Frame(cam_, img.clone(), timestamp));
   SVO_STOP_TIMER("pyramid_creation");
-
+////<<"entering imagecallback3"<<std::endl;
+//  //<<"Stage frame "<<stage_<<std::endl;
   // process frame
   UpdateResult res = RESULT_FAILURE;
-  if(stage_ == STAGE_DEFAULT_FRAME)
+  if(stage_ == STAGE_DEFAULT_FRAME )
     res = processFrame();
-  else if(stage_ == STAGE_SECOND_FRAME)
+  else if(stage_ == STAGE_SECOND_FRAME )
     res = processSecondFrame();
   else if(stage_ == STAGE_FIRST_FRAME)
     res = processFirstFrame();
@@ -81,6 +94,9 @@ void FrameHandlerMono::addImage(const cv::Mat& img, const double timestamp)
     res = relocalizeFrame(SE3(Matrix3d::Identity(), Vector3d::Zero()),
                           map_.getClosestKeyframe(last_frame_));
 
+  //std::cout<<stage_<<"Outputting stage"<<res<<std::endl;
+
+//  //<<"Stage frame "<<stage_<<std::endl;
   // set last frame
   last_frame_ = new_frame_;
   new_frame_.reset();
@@ -91,9 +107,13 @@ void FrameHandlerMono::addImage(const cv::Mat& img, const double timestamp)
 
 FrameHandlerMono::UpdateResult FrameHandlerMono::processFirstFrame()
 {
+
+  //<<"in first frame " <<std::endl;
   new_frame_->T_f_w_ = SE3(Matrix3d::Identity(), Vector3d::Zero());
   if(klt_homography_init_.addFirstFrame(new_frame_) == initialization::FAILURE)
     return RESULT_NO_KEYFRAME;
+
+  //<<"in first frame keyframe setting" <<std::endl;
   new_frame_->setKeyframe();
   map_.addKeyframe(new_frame_);
   stage_ = STAGE_SECOND_FRAME;
@@ -120,6 +140,34 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processSecondFrame()
   depth_filter_->addKeyframe(new_frame_, depth_mean, 0.5*depth_min);
 
   // add frame to map
+  map_.addKeyframe(new_frame_);//*/
+  stage_ = STAGE_DEFAULT_FRAME;
+  klt_homography_init_.reset();
+  SVO_INFO_STREAM("Init: Selected second frame, triangulated initial map.");
+  return RESULT_IS_KEYFRAME;
+}
+
+FrameHandlerBase::UpdateResult FrameHandlerMono::processSecondFrame(SE3 pose)
+{
+
+  //<<"in second frame processing"<<std::endl;
+  initialization::InitResult res = klt_homography_init_.addSecondFrame(new_frame_,pose);
+  if(res == initialization::FAILURE)
+    return RESULT_FAILURE;
+  else if(res == initialization::NO_KEYFRAME)
+    return RESULT_NO_KEYFRAME;
+
+  // two-frame bundle adjustment
+#ifdef USE_BUNDLE_ADJUSTMENT
+  ba::twoViewBA(new_frame_.get(), map_.lastKeyframe().get(), Config::lobaThresh(), &map_);
+#endif
+
+  new_frame_->setKeyframe();
+  double depth_mean, depth_min;
+  frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
+  depth_filter_->addKeyframe(new_frame_, depth_mean, 0.5*depth_min);
+
+  // add frame to map
   map_.addKeyframe(new_frame_);
   stage_ = STAGE_DEFAULT_FRAME;
   klt_homography_init_.reset();
@@ -130,14 +178,18 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processSecondFrame()
 FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 {
   // Set initial pose TODO use prior
+
+    //<<"iin default frame processing"<<last_frame_->T_f_w_<<std::endl;
   new_frame_->T_f_w_ = last_frame_->T_f_w_;
 
   // sparse image align
+  //<<"sparse_img_align"<<std::endl;
   SVO_START_TIMER("sparse_img_align");
   SparseImgAlign img_align(Config::kltMaxLevel(), Config::kltMinLevel(),
                            30, SparseImgAlign::GaussNewton, false, false);
   size_t img_align_n_tracked = img_align.run(last_frame_, new_frame_);
   SVO_STOP_TIMER("sparse_img_align");
+   //<<"sparse_img_align"<<img_align_n_tracked<<std::endl;
   SVO_LOG(img_align_n_tracked);
   SVO_DEBUG_STREAM("Img Align:\t Tracked = " << img_align_n_tracked);
 
@@ -148,7 +200,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   const size_t repr_n_new_references = reprojector_.n_matches_;
   const size_t repr_n_mps = reprojector_.n_trials_;
   SVO_LOG2(repr_n_mps, repr_n_new_references);
-  SVO_DEBUG_STREAM("Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references);
+  //std::cout<<"Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references<<std::endl;
   if(repr_n_new_references < Config::qualityMinFts())
   {
     SVO_WARN_STREAM_THROTTLE(1.0, "Not enough matched features.");
@@ -157,6 +209,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
     return RESULT_FAILURE;
   }
 
+  //<<"number of features"<<std::endl;
   // pose optimization
   SVO_START_TIMER("pose_optimizer");
   size_t sfba_n_edges_final;
@@ -166,8 +219,9 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
       new_frame_, sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
   SVO_STOP_TIMER("pose_optimizer");
   SVO_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
-  SVO_DEBUG_STREAM("PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh);
-  SVO_DEBUG_STREAM("PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final);
+  //<<"PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh<<std::endl;
+  //std::cout<<"PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final<<std::endl;;
+
   if(sfba_n_edges_final < 20)
     return RESULT_FAILURE;
 
@@ -184,6 +238,8 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
     new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
     return RESULT_FAILURE;
   }
+
+
   double depth_mean, depth_min;
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
   if(!needNewKf(depth_mean) || tracking_quality_ == TRACKING_BAD)

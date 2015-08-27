@@ -34,6 +34,14 @@
 #include <vikit/abstract_camera.h>
 #include <vikit/camera_loader.h>
 #include <vikit/user_input_thread.h>
+#include <object_tracking_2d_ros/ObjectDetections.h>
+
+ros::Time time_first,time_second;
+
+Sophus::SE3 pose1,pose2;
+
+int flag =0 ;
+int flagforframe =1;
 
 namespace svo {
 
@@ -54,6 +62,7 @@ public:
   ~VoNode();
   void imgCb(const sensor_msgs::ImageConstPtr& msg);
   void processUserActions();
+  void ebtmessageCallback(const object_tracking_2d_ros::ObjectDetections &msg);
   void remoteKeyCb(const std_msgs::StringConstPtr& key_input);
 };
 
@@ -104,8 +113,27 @@ void VoNode::imgCb(const sensor_msgs::ImageConstPtr& msg)
     ROS_ERROR("cv_bridge exception: %s", e.what());
   }
   processUserActions();
+  //<<"Geting image"<<std::endl;
   vo_->addImage(img, msg->header.stamp.toSec());
+
+
+  if((vo_->stage() == FrameHandlerMono::STAGE_SECOND_FRAME) && !flag)
+  {    //<<"the second frame"<<msg->header.stamp<<std::endl;
+       time_first = msg->header.stamp;
+       flag =1;
+  }
+
+   //<<"flag"<<flag<<std::endl;
+
+  if((vo_->stage() == FrameHandlerMono::STAGE_DEFAULT_FRAME) && flag )
+  {    //<<"the default frame"<<msg->header.stamp.toSec()<<std::endl;
+       time_second = msg->header.stamp;
+    //    //<<"flag1"<<flag<<std::endl;
+       flag =0;
+  }
+
   visualizer_.publishMinimal(img, vo_->lastFrame(), *vo_, msg->header.stamp.toSec());
+   visualizer_.visualizeMarkers(vo_->lastFrame(), vo_->coreKeyframes(), vo_->map());
 
   if(publish_markers_ && vo_->stage() != FrameHandlerBase::STAGE_PAUSED)
     visualizer_.visualizeMarkers(vo_->lastFrame(), vo_->coreKeyframes(), vo_->map());
@@ -115,6 +143,72 @@ void VoNode::imgCb(const sensor_msgs::ImageConstPtr& msg)
 
   if(vo_->stage() == FrameHandlerMono::STAGE_PAUSED)
     usleep(100000);
+}
+
+void VoNode::ebtmessageCallback(const object_tracking_2d_ros::ObjectDetections &msg)
+{
+
+     //<<"in  ebt msg  callback "<<msg.header.stamp.toSec()<<std::endl;
+
+
+
+     for(unsigned int i = 0; i < msg.detections.size(); ++i)
+      {
+
+       //   detection.id = msg.detections[i].id;
+
+         //<<msg.detections[i].ns<<std::endl;
+        if( ! msg.detections[i].ns.compare("ronzoni1.obj") )
+        {  // detection.ns = msg.detections[i].ns;
+       //   detection.good = msg.detections[i].good;
+       //   detection.init = msg.detections[i].init;
+
+
+
+          geometry_msgs::Pose m = msg.detections[i].pose;
+          Eigen::Affine3d e = Eigen::Translation3d(m.position.x,
+                                                   m.position.y,
+                                                   m.position.z) *
+                  Eigen::Quaterniond(m.orientation.w,
+                                     m.orientation.x,
+                                     m.orientation.y,
+                                     m.orientation.z);
+
+          //<<"in  ebt msg "<<msg.header.stamp<<std::endl;
+          Eigen::Matrix3d rot = e.rotation();
+          Eigen::Vector3d trans = e.translation();
+
+      //    std::cout<<time_first<<std::endl<<time_second<<std::endl;
+
+          if(abs((time_first - msg.header.stamp).toSec()) < 0.3 && flagforframe)
+          {
+              std::cout<<"in second frame ebt"<<(time_first - msg.header.stamp).toSec()<<std::endl;
+              std::cout<<time_first<<std::endl<<time_second<<std::endl;
+              pose1 = SE3(rot,trans);
+              flagforframe=1;
+   //           //<<"flagforframe1"<<flagforframe<<std::endl;
+
+          }
+
+          if(abs((time_second -msg.header.stamp).toSec()) < 0.3  && flagforframe)
+          {      pose2 = SE3(rot,trans);
+                 std::cout<<"in default frame ebt "<<msg.header.stamp.toSec()<<std::endl;
+                 const SE3 current_trans = pose2*pose1.inverse();
+                 //<<current_trans<<"the value"<<std::endl;
+          //       current_trans = SE3 (Matrix3d::Identity(), Vector3d::Zero());
+          //       //<<current_trans<<"the value with identity"<<std::endl;
+                 visualizer_.InitPose(current_trans,vo_->lastFrame());
+                 flagforframe=0;
+                 //<<"flagforframe2"<<current_trans<<std::endl;
+
+          }
+
+
+      }
+
+}
+
+
 }
 
 void VoNode::processUserActions()
@@ -158,7 +252,7 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "svo");
   ros::NodeHandle nh;
-  std::cout << "create vo_node" << std::endl;
+  // << "create vo_node" << std::endl;
   svo::VoNode vo_node;
 
   // subscribe to cam msgs
@@ -168,6 +262,10 @@ int main(int argc, char **argv)
 
   // subscribe to remote input
   vo_node.sub_remote_key_ = nh.subscribe("svo/remote_key", 5, &svo::VoNode::remoteKeyCb, &vo_node);
+
+  //subscribe to ebt msgs
+  ros::Subscriber ebtmessage_sub_ = nh.subscribe ("/object_tracking_2d_ros/detections", 1, &svo::VoNode::ebtmessageCallback, &vo_node);
+
 
   // start processing callbacks
   while(ros::ok() && !vo_node.quit_)

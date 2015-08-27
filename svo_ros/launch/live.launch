@@ -1,16 +1,34 @@
 <launch>
-  
-    <node pkg="svo_ros" type="vo" name="svo" clear_params="true" output="screen">
+      
+
+        <include file="$(find openni2_launch)/launch/openni2.launch">
+		<arg name="load_driver" value="true" />
+        <!--arg name="rgb_frame_id" value="/ardrone/image_raw" /-->
+	</include >
+
+    <param name="/use_sim_time" value="false"/>
+    
+
+   <node pkg="svo_ros" type="vo" name="svo" clear_params="true" output="screen" >
     
         <!-- Camera topic to subscribe to -->
-        <param name="cam_topic" value="/camera/image_raw" type="str" />
+        <param name="cam_topic" value="/camera/rgb/image_rect_color" type="str" />
         
         <!-- Camera calibration file -->
-        <rosparam file="$(find svo_ros)/param/camera_atan.yaml" />
+        <rosparam file="$(find svo_ros)/param/camera_pinhole.yaml" />
         
         <!-- Default parameter settings: choose between vo_fast and vo_accurate -->
-        <rosparam file="$(find svo_ros)/param/vo_fast.yaml" />
+        <rosparam file="$(find svo_ros)/param/vo_accurate.yaml" />
 
-    </node>
+   </node>     
+
+    <node pkg="tf" type="static_transform_publisher" name="camera_link_broadcaster" args="0 0 0 0 0 0  base_link camera_link 100" />
+    <!-- Same TF as /camera_rgb_optical_frame /camera_link -->
+    <node pkg="tf" type="static_transform_publisher" name="base_link_broadcaster" args="-0.045, 0.000, 0.000 1.571, -1.571, 0.000  cam_pos base_link 100" />    
+
+
+    
+    <node name="RVIZ" pkg="rviz" type="rviz" args=" -d /home/prateek/Downloads/svo.rviz" />
         
 </launch>
+

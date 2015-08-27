@@ -44,7 +44,7 @@ Visualizer() :
     img_pub_level_(vk::getParam<int>("svo/publish_img_pyr_level", 0)),
     img_pub_nth_(vk::getParam<int>("svo/publish_every_nth_img", 1)),
     dense_pub_nth_(vk::getParam<int>("svo/publish_every_nth_dense_input", 1)),
-    publish_world_in_cam_frame_(vk::getParam<bool>("svo/publish_world_in_cam_frame", true)),
+    publish_world_in_cam_frame_(vk::getParam<bool>("svo/publish_world_in_cam_frame", false)),
     publish_map_every_frame_(vk::getParam<bool>("svo/publish_map_every_frame", false)),
     publish_points_display_time_(vk::getParam<double>("svo/publish_point_display_time", 0)),
     T_world_from_vision_(Matrix3d::Identity(), Vector3d::Zero())
@@ -55,10 +55,27 @@ Visualizer() :
   pub_pose_ = pnh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pose",10);
   pub_info_ = pnh_.advertise<svo_msgs::Info>("info", 10);
   pub_dense_ = pnh_.advertise<svo_msgs::DenseInput>("dense_input",10);
-
+  init_flag =0;
+  num_frames = 0;
   // create video publisher
   image_transport::ImageTransport it(pnh_);
   pub_images_ = it.advertise("image", 10);
+}
+
+void Visualizer::InitPose(SE3 pose,const FramePtr& frame)
+{
+     //<<"Putputting the second frame"<<std::endl;
+     SE3 curr_pos  = T_world_from_vision_*frame->T_f_w_.inverse();
+     cout<<" value of current frame"<<curr_pos.translation();
+     double val1 = curr_pos.translation().norm();
+     double val2 = pose.inverse().translation().norm();
+     scale_new  = val2/val1;
+     init_flag =1;
+     curr_pos.translation() = (curr_pos.translation()*(1/num_frames));
+     std::cout<<"Putputting the second frame"<<scale_new<<" "<<curr_pos<<" "<<pose.inverse().translation()<<std::endl;
+     vk::output_helper::publishTfTransform(
+         curr_pos,
+         ros::Time(frame->timestamp_), "odom", "cam_pose", br_);
 }
 
 void Visualizer::publishMinimal(
@@ -67,6 +84,7 @@ void Visualizer::publishMinimal(
     const FrameHandlerMono& slam,
     const double timestamp)
 {
+  //<<"Stage "<<slam.stage()<<std::endl;
   ++trace_id_;
   std_msgs::Header header_msg;
   header_msg.frame_id = "/cam";
@@ -180,6 +198,7 @@ void Visualizer::publishMinimal(
       SE3 T_world_from_cam(T_world_from_vision_*frame->T_f_w_.inverse());
       q = Quaterniond(T_world_from_cam.rotation_matrix()*T_world_from_vision_.rotation_matrix().transpose());
       p = T_world_from_cam.translation();
+
       Cov = T_world_from_cam.Adj()*frame->Cov_*T_world_from_cam.inverse().Adj();
     }
     geometry_msgs::PoseWithCovarianceStampedPtr msg_pose(new geometry_msgs::PoseWithCovarianceStamped);
@@ -205,15 +224,29 @@ void Visualizer::visualizeMarkers(
   if(frame == NULL)
     return;
 
-  vk::output_helper::publishTfTransform(
+ /* vk::output_helper::publishTfTransform(
       frame->T_f_w_*T_world_from_vision_.inverse(),
-      ros::Time(frame->timestamp_), "cam_pos", "world", br_);
-
+      ros::Time(frame->timestamp_), "cam_pos", "world", br_);*/
+  if(1)
+ {
+      SE3 curr_pos  = T_world_from_vision_*frame->T_f_w_.inverse();
+      curr_pos.translation() = (curr_pos.translation()); //*scale_new);
+      std::cout<<"SVO at current time"<<curr_pos.translation()<<std::endl;
+  vk::output_helper::publishTfTransform(
+     curr_pos,
+      ros::Time(frame->timestamp_), "odom", "cam_pos", br_);
+  }
+  else
+   {   vk::output_helper::publishTfTransform(
+          T_world_from_vision_*frame->T_f_w_.inverse(),
+          ros::Time(frame->timestamp_), "odom", "cam_pos", br_);
+      num_frames+=1;
+    }
   if(pub_frames_.getNumSubscribers() > 0 || pub_points_.getNumSubscribers() > 0)
   {
     vk::output_helper::publishHexacopterMarker(
         pub_frames_, "cam_pos", "cams", ros::Time(frame->timestamp_),
-        1, 0, 0.3, Vector3d(0.,0.,1.));
+        1, 0, 0.3, Vector3d(0.,0.,1.)); //*/
     vk::output_helper::publishPointMarker(
         pub_points_, T_world_from_vision_*frame->pos(), "trajectory",
         ros::Time::now(), trace_id_, 0, 0.006, Vector3d(0.,0.,0.5));

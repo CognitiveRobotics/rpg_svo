@@ -21,6 +21,7 @@
 #include <svo/feature.h>
 #include <boost/bind.hpp>
 
+
 namespace svo {
 
 Map::Map() {}
@@ -114,6 +115,8 @@ void Map::getCloseKeyframes(
     {
       if(keypoint == nullptr)
         continue;
+
+    //  std::cout<< "in the close keyframe"<<frame->T_f_w_.translation()<< kf->T_f_w_.translation()<<std::endl;
 
       if(frame->isVisible(keypoint->point->pos_))
       {

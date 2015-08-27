@@ -40,4 +40,5 @@
   <run_depend>svo_msgs</run_depend>
   <run_depend>vikit_common</run_depend>
   <run_depend>vikit_ros</run_depend>
+  <run_depend>object_tracking_2d_ros</run_depend>
 </package>

@@ -62,6 +62,9 @@ public:
   bool publish_map_every_frame_;
   ros::Duration publish_points_display_time_;
   SE3 T_world_from_vision_;
+  int init_flag;
+  int num_frames;
+  double scale_new;
 
   Visualizer();
 
@@ -85,6 +88,8 @@ public:
   void displayKeyframeWithMps(const FramePtr& frame, int ts);
 
   void exportToDense(const FramePtr& frame);
+
+  void InitPose(SE3 pose, const FramePtr &frame);
 };
 
 } // end namespace svo

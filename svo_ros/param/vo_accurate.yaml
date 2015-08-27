@@ -1,4 +1,14 @@
-grid_size: 20
-max_n_kfs: 50
-loba_num_iter: 10
-max_fts: 200
+grid_size: 10
+max_n_kfs: 100
+loba_num_iter: 100
+max_fts: 100
+init_min_disparity: 20
+init_min_tracked: 20
+init_min_inliers: 20
+reproj_thresh: 10.0
+n_pyr_levels: 10
+poseoptim_thresh: 3.0
+map_scale: 1 
+quality_max_drop_fts: 80
+quality_min_fts: 20
+

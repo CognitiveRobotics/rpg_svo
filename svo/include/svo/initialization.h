@@ -18,6 +18,9 @@
 #define SVO_INITIALIZATION_H
 
 #include <svo/global.h>
+#include <opencv2/contrib/contrib.hpp>
+#include "opencv2/features2d/features2d.hpp"
+#include "opencv2/nonfree/nonfree.hpp"
 
 namespace svo {
 
@@ -35,11 +38,28 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   FramePtr frame_ref_;
-  KltHomographyInit() {};
+  KltHomographyInit() { cv::initModule_nonfree();}; // for SURF feature};
   ~KltHomographyInit() {};
   InitResult addFirstFrame(FramePtr frame_ref);
-  InitResult addSecondFrame(FramePtr frame_ref);
+  Vector3d triangulateFeatureNonLin1(const Matrix3d& R,  const Vector3d& t,
+                                    const Vector3d& feature1, const Vector3d& feature2 );
+  double computeInliers1(const vector<Vector3d>& features1, // c1
+                 const vector<Vector3d>& features2, // c2
+                 const Matrix3d& R,                 // R_c1_c2
+                 const Vector3d& t,                 // c1_t
+                 const double reproj_thresh,
+                 double error_multiplier2,
+                 vector<Vector3d>& xyz_vec,         // in frame c1
+                 vector<int>& inliers,
+                 vector<int>& outliers);
+  InitResult addSecondFrame(FramePtr frame_ref);//, SE3 old_pose);
+  InitResult addSecondFrame(FramePtr frame_ref, SE3 pose);
   void reset();
+  void loadKeyframes(string path);
+  void buildKdTree();
+  void findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs, int numOfKeyframes);
+  SE3 estimatePose(int &num_of_corr,FramePtr frame_ref);
+  int refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs,FramePtr frame_ref,SE3 &pose);
 
 protected:
   vector<cv::Point2f> px_ref_;      //!< keypoints to be tracked in reference frame.
@@ -50,13 +70,34 @@ protected:
   vector<int> inliers_;             //!< inliers after the geometric check (e.g., Homography).
   vector<Vector3d> xyz_in_cur_;     //!< 3D points computed during the geometric check.
   SE3 T_cur_from_ref_;              //!< computed transformation between the first two frames.
+  SE3 F_pose;
+
+  std::vector<CvMat*>     keyframe_keypoints_2d_;
+  std::vector<CvMat*>     keyframe_keypoints_3d_;
+  std::vector<CvMat*>     keyframe_descriptors_;
+
+
+  vector<CvPoint2D32f> keypoints2D;
+  vector<CvPoint3D32f> keypoints3D;
+  vector<CvPoint2D32f> input_keypoints_2d_;
+  vector<int> keyframe_lut_;
+  cv::Mat kfd_;
+
+
+
 };
+
+
+
+
 
 /// Detect Fast corners in the image.
 void detectFeatures(
     FramePtr frame,
     vector<cv::Point2f>& px_vec,
     vector<Vector3d>& f_vec);
+
+
 
 /// Compute optical flow (Lucas Kanade) for selected keypoints.
 void trackKlt(

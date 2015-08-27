@@ -92,6 +92,8 @@ bool FrameHandlerBase::startFrameProcessingCommon(const double timestamp)
     stage_ = STAGE_FIRST_FRAME;
   }
 
+  //std::cout<<"Stage in frame processing"<<stage_<<std::endl;
+
   if(stage_ == STAGE_PAUSED)
     return false;
 
@@ -112,14 +114,14 @@ int FrameHandlerBase::finishFrameProcessingCommon(
 {
   SVO_DEBUG_STREAM("Frame: "<<update_id<<"\t fps-avg = "<< 1.0/acc_frame_timings_.getMean()<<"\t nObs = "<<acc_num_obs_.getMean());
   SVO_LOG(dropout);
-
+  //std::cout<<"Frame finish processing start"<<set_reset_<<" "<<stage_<<std::endl;
   // save processing time to calculate fps
   acc_frame_timings_.push_back(timer_.stop());
   if(stage_ == STAGE_DEFAULT_FRAME)
     acc_num_obs_.push_back(num_observations);
   num_obs_last_ = num_observations;
   SVO_STOP_TIMER("tot_time");
-
+//std::cout<<"Frame finish processing start"<<set_reset_<<" "<<stage_<<std::endl;
 #ifdef SVO_TRACE
   g_permon->writeToFile();
   {
@@ -128,6 +130,10 @@ int FrameHandlerBase::finishFrameProcessingCommon(
     SVO_LOG(n_candidates);
   }
 #endif
+//std::cout<<"Frame finish processing start"<<set_reset_<<" "<<stage_<<std::endl;
+
+if (dropout == RESULT_FAILURE)
+    resetAll();
 
   if(dropout == RESULT_FAILURE &&
       (stage_ == STAGE_DEFAULT_FRAME || stage_ == STAGE_RELOCALIZING ))
@@ -137,6 +143,8 @@ int FrameHandlerBase::finishFrameProcessingCommon(
   }
   else if (dropout == RESULT_FAILURE)
     resetAll();
+ // std::cout<<"Frame finish processing"<<set_reset_<<" "<<stage_<<std::endl;
+
   if(set_reset_)
     resetAll();
 
