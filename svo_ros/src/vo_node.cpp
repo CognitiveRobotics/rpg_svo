@@ -34,7 +34,7 @@
 #include <vikit/abstract_camera.h>
 #include <vikit/camera_loader.h>
 #include <vikit/user_input_thread.h>
-#include <object_tracking_2d_ros/ObjectDetections.h>
+//#include <object_tracking_2d_ros/ObjectDetections.h>
 
 ros::Time time_first,time_second;
 
@@ -62,7 +62,7 @@ public:
   ~VoNode();
   void imgCb(const sensor_msgs::ImageConstPtr& msg);
   void processUserActions();
-  void ebtmessageCallback(const object_tracking_2d_ros::ObjectDetections &msg);
+//  void ebtmessageCallback(const object_tracking_2d_ros::ObjectDetections &msg);
   void remoteKeyCb(const std_msgs::StringConstPtr& key_input);
 };
 
@@ -145,71 +145,71 @@ void VoNode::imgCb(const sensor_msgs::ImageConstPtr& msg)
     usleep(100000);
 }
 
-void VoNode::ebtmessageCallback(const object_tracking_2d_ros::ObjectDetections &msg)
-{
+//void VoNode::ebtmessageCallback(const object_tracking_2d_ros::ObjectDetections &msg)
+//{
 
-     //<<"in  ebt msg  callback "<<msg.header.stamp.toSec()<<std::endl;
-
-
-
-     for(unsigned int i = 0; i < msg.detections.size(); ++i)
-      {
-
-       //   detection.id = msg.detections[i].id;
-
-         //<<msg.detections[i].ns<<std::endl;
-        if( ! msg.detections[i].ns.compare("ronzoni1.obj") )
-        {  // detection.ns = msg.detections[i].ns;
-       //   detection.good = msg.detections[i].good;
-       //   detection.init = msg.detections[i].init;
+//     //<<"in  ebt msg  callback "<<msg.header.stamp.toSec()<<std::endl;
 
 
 
-          geometry_msgs::Pose m = msg.detections[i].pose;
-          Eigen::Affine3d e = Eigen::Translation3d(m.position.x,
-                                                   m.position.y,
-                                                   m.position.z) *
-                  Eigen::Quaterniond(m.orientation.w,
-                                     m.orientation.x,
-                                     m.orientation.y,
-                                     m.orientation.z);
+//     for(unsigned int i = 0; i < msg.detections.size(); ++i)
+//      {
 
-          //<<"in  ebt msg "<<msg.header.stamp<<std::endl;
-          Eigen::Matrix3d rot = e.rotation();
-          Eigen::Vector3d trans = e.translation();
+//       //   detection.id = msg.detections[i].id;
 
-      //    std::cout<<time_first<<std::endl<<time_second<<std::endl;
-
-          if(abs((time_first - msg.header.stamp).toSec()) < 0.3 && flagforframe)
-          {
-              std::cout<<"in second frame ebt"<<(time_first - msg.header.stamp).toSec()<<std::endl;
-              std::cout<<time_first<<std::endl<<time_second<<std::endl;
-              pose1 = SE3(rot,trans);
-              flagforframe=1;
-   //           //<<"flagforframe1"<<flagforframe<<std::endl;
-
-          }
-
-          if(abs((time_second -msg.header.stamp).toSec()) < 0.3  && flagforframe)
-          {      pose2 = SE3(rot,trans);
-                 std::cout<<"in default frame ebt "<<msg.header.stamp.toSec()<<std::endl;
-                 const SE3 current_trans = pose2*pose1.inverse();
-                 //<<current_trans<<"the value"<<std::endl;
-          //       current_trans = SE3 (Matrix3d::Identity(), Vector3d::Zero());
-          //       //<<current_trans<<"the value with identity"<<std::endl;
-                 visualizer_.InitPose(current_trans,vo_->lastFrame());
-                 flagforframe=0;
-                 //<<"flagforframe2"<<current_trans<<std::endl;
-
-          }
+//         //<<msg.detections[i].ns<<std::endl;
+//        if( ! msg.detections[i].ns.compare("ronzoni1.obj") )
+//        {  // detection.ns = msg.detections[i].ns;
+//       //   detection.good = msg.detections[i].good;
+//       //   detection.init = msg.detections[i].init;
 
 
-      }
 
-}
+//          geometry_msgs::Pose m = msg.detections[i].pose;
+//          Eigen::Affine3d e = Eigen::Translation3d(m.position.x,
+//                                                   m.position.y,
+//                                                   m.position.z) *
+//                  Eigen::Quaterniond(m.orientation.w,
+//                                     m.orientation.x,
+//                                     m.orientation.y,
+//                                     m.orientation.z);
+
+//          //<<"in  ebt msg "<<msg.header.stamp<<std::endl;
+//          Eigen::Matrix3d rot = e.rotation();
+//          Eigen::Vector3d trans = e.translation();
+
+//      //    std::cout<<time_first<<std::endl<<time_second<<std::endl;
+
+//          if(abs((time_first - msg.header.stamp).toSec()) < 0.3 && flagforframe)
+//          {
+//              std::cout<<"in second frame ebt"<<(time_first - msg.header.stamp).toSec()<<std::endl;
+//              std::cout<<time_first<<std::endl<<time_second<<std::endl;
+//              pose1 = SE3(rot,trans);
+//              flagforframe=1;
+//   //           //<<"flagforframe1"<<flagforframe<<std::endl;
+
+//          }
+
+//          if(abs((time_second -msg.header.stamp).toSec()) < 0.3  && flagforframe)
+//          {      pose2 = SE3(rot,trans);
+//                 std::cout<<"in default frame ebt "<<msg.header.stamp.toSec()<<std::endl;
+//                 const SE3 current_trans = pose2*pose1.inverse();
+//                 //<<current_trans<<"the value"<<std::endl;
+//          //       current_trans = SE3 (Matrix3d::Identity(), Vector3d::Zero());
+//          //       //<<current_trans<<"the value with identity"<<std::endl;
+//                 visualizer_.InitPose(current_trans,vo_->lastFrame());
+//                 flagforframe=0;
+//                 //<<"flagforframe2"<<current_trans<<std::endl;
+
+//          }
 
 
-}
+//      }
+
+//}
+
+
+//}
 
 void VoNode::processUserActions()
 {
@@ -264,7 +264,7 @@ int main(int argc, char **argv)
   vo_node.sub_remote_key_ = nh.subscribe("svo/remote_key", 5, &svo::VoNode::remoteKeyCb, &vo_node);
 
   //subscribe to ebt msgs
-  ros::Subscriber ebtmessage_sub_ = nh.subscribe ("/object_tracking_2d_ros/detections", 1, &svo::VoNode::ebtmessageCallback, &vo_node);
+//  ros::Subscriber ebtmessage_sub_ = nh.subscribe ("/object_tracking_2d_ros/detections", 1, &svo::VoNode::ebtmessageCallback, &vo_node);
 
 
   // start processing callbacks
