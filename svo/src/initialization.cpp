@@ -47,11 +47,35 @@ InitResult KltHomographyInit::addFirstFrame(FramePtr frame_ref)
   reset();
   detectFeatures(frame_ref, px_ref_, f_ref_);
 
-  string path = "/root/Desktop/catkin_ws/src/object_tracking_2d_ros/data/ronzoni1";
-  loadKeyframes(path);
-  buildKdTree();
+  string path = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/ronzoni1";
+  string path_cr= "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/crayola_box";
+  string path_or= "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/orange_juice_carton";
+  loadKeyframes(path,1);
+  loadKeyframes(path_cr,2);
+  loadKeyframes(path_or,3);
+  buildKdTree(1);
+  buildKdTree(2);
+  buildKdTree(3);
   int num_corr = 6;
-  F_pose = estimatePose(num_corr,frame_ref);
+  int num_corr1 = 6;
+  int num_corr2 = 6;
+  SE3 pose1 = estimatePose(num_corr,frame_ref,1);
+  SE3 pose2 = estimatePose(num_corr1,frame_ref,2);
+  SE3 pose3 = estimatePose(num_corr2,frame_ref,3);
+
+  if(num_corr>=num_corr1 ){
+     if(num_corr >= num_corr2)
+         F_pose = pose1;
+     else
+         F_pose = pose3;
+  }
+  else{
+      if(num_corr1 >= num_corr2)
+          F_pose = pose2;
+      else
+          F_pose = pose3;
+
+  }
   std::cout<<F_pose<<std::endl;
 
 
@@ -145,7 +169,29 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   }//*/
 
   int num_corr = 6;
-  SE3 pose = estimatePose(num_corr,frame_cur);
+  int num_corr1 = 6;
+  int num_corr2 = 6;
+  SE3 pose1 = estimatePose(num_corr,frame_cur,1);
+  SE3 pose2 = estimatePose(num_corr1,frame_cur,2);
+  SE3 pose3 = estimatePose(num_corr2,frame_cur,3);
+  SE3 pose;
+  if(num_corr>=num_corr1 ){
+     if(num_corr >= num_corr2)
+         pose = pose1;
+     else
+         pose = pose3;
+  }
+  else{
+      if(num_corr1 >= num_corr2)
+         pose = pose2;
+      else
+         pose = pose3;
+
+  }
+ // std::cout<<pose<<std::endl;
+
+ // int num_corr = 6;
+ // SE3 pose = estimatePose(num_corr,frame_cur);
   std::cout<<"in second frme"<<pose<<std::endl;
 
 
@@ -319,7 +365,7 @@ void KltHomographyInit::reset()
 }
 
 
-void KltHomographyInit::loadKeyframes(string obj_name)
+void KltHomographyInit::loadKeyframes(string obj_name,int num)
 {
   // Load keyframes: count the number of keyframes, then dynamically load jpeg images and pose parameters (xml)
 
@@ -355,9 +401,9 @@ void KltHomographyInit::loadKeyframes(string obj_name)
   // Read keyframes - jpg & xml files
   //keyframe_images_.resize(num_keyframes_);
   //keyframe_poses_.resize(num_keyframes_);
-  keyframe_keypoints_2d_.resize(num_keyframes_);
-  keyframe_keypoints_3d_.resize(num_keyframes_);
-  keyframe_descriptors_.resize(num_keyframes_);
+  keyframe_keypoints_2d_[num].resize(num_keyframes_);
+  keyframe_keypoints_3d_[num].resize(num_keyframes_);
+  keyframe_descriptors_[num].resize(num_keyframes_);
 
   std::stringstream ss;
   for(int i=0; i<num_keyframes_; i++)
@@ -375,74 +421,74 @@ void KltHomographyInit::loadKeyframes(string obj_name)
     ss.str(std::string()); // cleaning ss
     ss << data_dir << "/" << "keypoint2d" << std::setw(3) << std::setfill('0') << i + 1 << ".xml";
     std::cout<<ss.str().c_str()<<std::endl;
-    keyframe_keypoints_2d_[i] = (CvMat*)cvLoad(ss.str().c_str());
-    assert(keyframe_keypoints_2d_[i]);
+    keyframe_keypoints_2d_[num][i] = (CvMat*)cvLoad(ss.str().c_str());
+    assert(keyframe_keypoints_2d_[num][i]);
 
     ss.str(std::string()); // cleaning ss
     ss << data_dir << "/" << "keypoint3d" << std::setw(3) << std::setfill('0') << i + 1 << ".xml";
-    keyframe_keypoints_3d_[i] = (CvMat*)cvLoad(ss.str().c_str());
-    assert(keyframe_keypoints_3d_[i]);
+    keyframe_keypoints_3d_[num][i] = (CvMat*)cvLoad(ss.str().c_str());
+    assert(keyframe_keypoints_3d_[num][i]);
 
     ss.str(std::string()); // cleaning ss
     ss << data_dir << "/" << "descriptor" << std::setw(3) << std::setfill('0') << i + 1 << ".xml";
-    keyframe_descriptors_[i] = (CvMat*)cvLoad(ss.str().c_str());
-    assert(keyframe_descriptors_[i]);
+    keyframe_descriptors_[num][i] = (CvMat*)cvLoad(ss.str().c_str());
+    assert(keyframe_descriptors_[num][i]);
   }
 
 }
 
-void KltHomographyInit::buildKdTree()
+void KltHomographyInit::buildKdTree(int num)
 {
-  if(keyframe_keypoints_2d_.size() == 0 || keyframe_keypoints_3d_.size() == 0 || keyframe_descriptors_.size() == 0)
+  if(keyframe_keypoints_2d_[num].size() == 0 || keyframe_keypoints_3d_[num].size() == 0 || keyframe_descriptors_[num].size() == 0)
     return;
 
   //assert(keyframe.size() == keypoint2D.size());
-  assert(keyframe_keypoints_2d_.size() == keyframe_keypoints_3d_.size());
-  assert(keyframe_keypoints_3d_.size() == keyframe_descriptors_.size());
+  assert(keyframe_keypoints_2d_[num].size() == keyframe_keypoints_3d_[num].size());
+  assert(keyframe_keypoints_3d_[num].size() == keyframe_descriptors_[num].size());
 
  // keyframe_images_ = keyframe;
 
   // Save keyframe descriptor into CvMat
-  int dims = keyframe_descriptors_[0]->cols;
+  int dims = keyframe_descriptors_[num][0]->cols;
   int row = 0;
-  for(int i=0; i < keyframe_keypoints_2d_.size(); i++)
+  for(int i=0; i < keyframe_keypoints_2d_[num].size(); i++)
   {
-    row += keyframe_keypoints_2d_[i]->rows;
+    row += keyframe_keypoints_2d_[num][i]->rows;
   }
 
 
-  keyframe_lut_.resize(row);
-  keypoints2D.resize(row);
-  keypoints3D.resize(row);
+  keyframe_lut_[num].resize(row);
+  keypoints2D[num].resize(row);
+  keypoints3D[num].resize(row);
 
   cv::Mat kfd(row, dims, CV_32F);
   cv::Mat labels,clusters;
   int k = 0;
 
-  for(int h = 0; h < keyframe_keypoints_2d_.size(); h++)
+  for(int h = 0; h < keyframe_keypoints_2d_[num].size(); h++)
   {
 
       int l=0;
-      for(int i = 0; i < keyframe_keypoints_2d_[h]->rows; i++ )
+      for(int i = 0; i < keyframe_keypoints_2d_[num][h]->rows; i++ )
       {
 
-          keypoints2D[l+k] = CV_MAT_ELEM(*keyframe_keypoints_2d_[h], CvPoint2D32f, i, 0);
-          keypoints3D[l+k] = CV_MAT_ELEM(*keyframe_keypoints_3d_[h], CvPoint3D32f, i, 0);
-          keyframe_lut_[l+k] = h;
+          keypoints2D[num][l+k] = CV_MAT_ELEM(*keyframe_keypoints_2d_[num][h], CvPoint2D32f, i, 0);
+          keypoints3D[num][l+k] = CV_MAT_ELEM(*keyframe_keypoints_3d_[num][h], CvPoint3D32f, i, 0);
+          keyframe_lut_[num][l+k] = h;
           for(int j=0; j<dims; j++)
-            kfd.at<float>(l+k, j) = CV_MAT_ELEM(*keyframe_descriptors_[h], float, i, j);
+            kfd.at<float>(l+k, j) = CV_MAT_ELEM(*keyframe_descriptors_[num][h], float, i, j);
           l+=1;
 
         }
 
-     k += keyframe_keypoints_2d_[h]->rows;
+     k += keyframe_keypoints_2d_[num][h]->rows;
    }
      std::cout<<"number of 0 labels"<<kfd.rows<<std::endl;
 
-   kfd_ = kfd;
+   kfd_[num] = kfd;
 }
 
-SE3 KltHomographyInit::estimatePose(int &num_of_corr,FramePtr frame_ref)
+SE3 KltHomographyInit::estimatePose(int &num_of_corr,FramePtr frame_ref,int num)
 {
   // Using keyframes + EPnP RANSAC
 
@@ -465,11 +511,12 @@ SE3 KltHomographyInit::estimatePose(int &num_of_corr,FramePtr frame_ref)
   std::cout<<"here after extraction"<<std::endl;
 
 
-  findCorrespondenceNN_FLANN(seq_keypoints_, seq_descriptors_, corr_/*corr1_*/, keyframe_keypoints_2d_.size());
+  findCorrespondenceNN_FLANN(seq_keypoints_, seq_descriptors_, corr_/*corr1_*/, keyframe_keypoints_2d_[num].size(),num);
   std::cout<<"size of pt pairs with corr"<<corr_.size()<<std::endl;
 
   SE3 pose;
-  refineCorrespondenceEpnpRANSAC(corr_,frame_ref,pose);
+  refineCorrespondenceEpnpRANSAC(corr_,frame_ref,pose,num);
+  num_of_corr = corr_.size();
 
   cvClearSeq(seq_keypoints_);
   cvClearSeq(seq_descriptors_);
@@ -527,7 +574,7 @@ SE3 KltHomographyInit::estimatePose(int &num_of_corr,FramePtr frame_ref)
 
 
 
-void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs/*vector< vector<int> >& ptpairs1*/, int numOfKeyframes)
+void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs/*vector< vector<int> >& ptpairs1*/, int numOfKeyframes, int num)
 {
 
   if(imageDescriptors->total == 0)
@@ -540,7 +587,7 @@ void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, 
   CvSeqReader kreader, reader;
   int dims = imageDescriptors->elem_size/sizeof(float);
   cv::Mat id(imageDescriptors->total, dims, CV_32F); // imageDescriptors
-  input_keypoints_2d_.resize(imageDescriptors->total);
+  input_keypoints_2d_[num].resize(imageDescriptors->total);
   std::cout<<"in the refinement"<<imageDescriptors->total<<std::endl;
 
   // save image descriptor into CvMat
@@ -552,7 +599,7 @@ void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, 
     const float* descriptor = (const float*)reader.ptr;
     CV_NEXT_SEQ_ELEM( kreader.seq->elem_size, kreader );
     CV_NEXT_SEQ_ELEM( reader.seq->elem_size, reader );
-    input_keypoints_2d_[i] = (*kp).pt;
+    input_keypoints_2d_[num][i] = (*kp).pt;
     for(int j=0; j<dims; j++)
       id.at<float>(i, j) = descriptor[j];
   }
@@ -562,11 +609,11 @@ void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, 
 
 
   double th_ratio = 0.6;      // ratio test threshold
-  cv::Mat indices(kfd_.rows, 2, CV_32S);
-  cv::Mat dists(kfd_.rows, 2, CV_32F);
+  cv::Mat indices(kfd_[num].rows, 2, CV_32S);
+  cv::Mat dists(kfd_[num].rows, 2, CV_32F);
 
   cv::flann::Index flann_index(id, cv::flann::KDTreeIndexParams(8));  // using 4 randomized kdtrees
-  flann_index.knnSearch(kfd_, indices, dists, 2, cv::flann::SearchParams(64)); // maximum number of leafs
+  flann_index.knnSearch(kfd_[num], indices, dists, 2, cv::flann::SearchParams(64)); // maximum number of leafs
   std::cout<<"point pair size"<<indices.rows<<std::endl;
   ptpairs.clear();
   vector<int> idxpairs;
@@ -581,7 +628,7 @@ void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, 
     {
       ptpairs.push_back(i); // image index
       ptpairs.push_back(indices_ptr[2*i]); // object index
-      idxpairs.push_back(keyframe_lut_[indices_ptr[2*i]]);
+      idxpairs.push_back(keyframe_lut_[num][indices_ptr[2*i]]);
     }
   }
 
@@ -641,7 +688,7 @@ void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, 
 
 
 
-int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs, FramePtr frame_ref, SE3 &pose)
+int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs, FramePtr frame_ref, SE3 &pose,int num)
 {
   const int NOM = 7; // number of model parameters
 
@@ -670,9 +717,9 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
   objOutliers3D.resize(n);
   for(int i = 0; i < n; i++ )
   {
-    objOutliers[i] = keypoints2D[ptpairs[i*2]];
-    imgOutliers[i] = input_keypoints_2d_[ptpairs[i*2+1]];
-    objOutliers3D[i] = keypoints3D[ptpairs[i*2]];
+    objOutliers[i] = keypoints2D[num][ptpairs[i*2]];
+    imgOutliers[i] = input_keypoints_2d_[num][ptpairs[i*2+1]];
+    objOutliers3D[i] = keypoints3D[num][ptpairs[i*2]];
   }
 
   std::cout<<"Outputting the intrinsics"<<frame_ref->cam_->errorMultiplier2()<<std::endl;

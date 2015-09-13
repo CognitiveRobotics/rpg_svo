@@ -55,11 +55,11 @@ public:
   InitResult addSecondFrame(FramePtr frame_ref);//, SE3 old_pose);
   InitResult addSecondFrame(FramePtr frame_ref, SE3 pose);
   void reset();
-  void loadKeyframes(string path);
-  void buildKdTree();
-  void findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs, int numOfKeyframes);
-  SE3 estimatePose(int &num_of_corr,FramePtr frame_ref);
-  int refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs,FramePtr frame_ref,SE3 &pose);
+  void loadKeyframes(string path, int num);
+  void buildKdTree(int num);
+  void findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs, int numOfKeyframes, int num);
+  SE3 estimatePose(int &num_of_corr, FramePtr frame_ref, int num);
+  int refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs, FramePtr frame_ref, SE3 &pose, int num);
 
 protected:
   vector<cv::Point2f> px_ref_;      //!< keypoints to be tracked in reference frame.
@@ -72,16 +72,16 @@ protected:
   SE3 T_cur_from_ref_;              //!< computed transformation between the first two frames.
   SE3 F_pose;
 
-  std::vector<CvMat*>     keyframe_keypoints_2d_;
-  std::vector<CvMat*>     keyframe_keypoints_3d_;
-  std::vector<CvMat*>     keyframe_descriptors_;
+  std::vector<std::vector<CvMat*>>     keyframe_keypoints_2d_;
+  std::vector<std::vector<CvMat*>>     keyframe_keypoints_3d_;
+  std::vector<std::vector<CvMat*>>     keyframe_descriptors_;
 
 
-  vector<CvPoint2D32f> keypoints2D;
-  vector<CvPoint3D32f> keypoints3D;
-  vector<CvPoint2D32f> input_keypoints_2d_;
-  vector<int> keyframe_lut_;
-  cv::Mat kfd_;
+  vector<vector<CvPoint2D32f>> keypoints2D;
+  vector<vector<CvPoint3D32f>> keypoints3D;
+  vector<vector<CvPoint2D32f>> input_keypoints_2d_;
+  vector<vector<int>> keyframe_lut_;
+  vector<cv::Mat> kfd_;
 
 
 
