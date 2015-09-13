@@ -72,9 +72,10 @@ protected:
   SE3 T_cur_from_ref_;              //!< computed transformation between the first two frames.
   SE3 F_pose;
 
-  std::vector<std::vector<CvMat*>>     keyframe_keypoints_2d_;
-  std::vector<std::vector<CvMat*>>     keyframe_keypoints_3d_;
-  std::vector<std::vector<CvMat*>>     keyframe_descriptors_;
+  std::vector< std::vector<CvMat*> >     keyframe_keypoints_2d_;
+  std::vector< std::vector<CvMat*> >     keyframe_keypoints_3d_;
+
+  std::vector< std::vector<CvMat*> >     keyframe_descriptors_;
 
 
   vector<vector<CvPoint2D32f>> keypoints2D;
