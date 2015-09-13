@@ -223,6 +223,19 @@ void VoNode::processUserActions()
       input = console_input;
   }
 
+  // If the tracking is paused and of insufficient quality then restart
+  if (vo_->stage() == vo_->Stage::STAGE_PAUSED){
+      if (vo_->trackingQuality() == vo_->TrackingQuality::TRACKING_INSUFFICIENT){
+          input = 's';
+      }
+//      else{
+//          std::cout << "vo_->trackingQuality(): " << vo_->trackingQuality() << std::endl;
+//      }
+  }
+//  else{
+//      std::cout << "vo_->stage(): " << vo_->stage() << std::endl;
+//  }
+
   switch(input)
   {
     case 'q':
