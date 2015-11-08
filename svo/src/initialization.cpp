@@ -48,22 +48,25 @@ InitResult KltHomographyInit::addFirstFrame(FramePtr frame_ref)
   detectFeatures(frame_ref, px_ref_, f_ref_);
 
   string path = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/ronzoni1";
-  string path_cr= "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/crayola_box";
-  string path_or= "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/orange_juice_carton";
+  string path_cr= "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/crayola_64_ct";
+  string path_or= "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/orange_juice_carton_flo";
+  string path_ss = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/soft_scrub";
+  string path_td = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/tide";
+
   std::cout<<"loading keyframes"<<std::endl;
-  loadKeyframes(path,1);
+  loadKeyframes(path_td,1);
  // loadKeyframes(path_cr,2);
-  loadKeyframes(path_or,3);
+ // loadKeyframes(path_or,3);
   std::cout<<"loaded keyframes"<<std::endl;
   buildKdTree(0);
-  buildKdTree(1);
+ // buildKdTree(1);
  // buildKdTree(2);
   int num_corr = 6;
   int num_corr1 = 0;
   int num_corr2 = 0;
   SE3 pose1 = estimatePose(num_corr,frame_ref,0);
   SE3 pose2,pose3;
-  pose2 = estimatePose(num_corr1,frame_ref,1);
+//  pose2 = estimatePose(num_corr1,frame_ref,1);
  // pose3 = estimatePose(num_corr2,frame_ref,2);
 
   if(num_corr>=num_corr1 ){
@@ -176,7 +179,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   int num_corr2 = 0;
   SE3 pose1 = estimatePose(num_corr,frame_cur,0);
   SE3 pose2,pose3;
-  pose2 = estimatePose(num_corr1,frame_cur,1);
+  //    pose2 = estimatePose(num_corr1,frame_cur,1);
  // SE3 pose3 = estimatePose(num_corr2,frame_cur,2);
   SE3 pose;
   if(num_corr>=num_corr1 ){
@@ -196,7 +199,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
 
  // int num_corr = 6;
  // SE3 pose = estimatePose(num_corr,frame_cur);
-  std::cout<<"in second frme"<<pose<<std::endl;
+  std::cout<<"in second frme"<<pose<<"  first frame "<<F_pose<<std::endl;
 
 
   T_cur_from_ref_ = pose*F_pose.inverse();
@@ -229,7 +232,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   //scale = 12;
   frame_cur->T_f_w_ = T_cur_from_ref_ * frame_ref_->T_f_w_;
  // frame_cur->T_f_w_.translation() =
- //     -frame_cur->T_f_w_.rotation_matrix()*(frame_ref_->pos() + scale*(frame_cur->pos() - frame_ref_->pos()));
+  //    -frame_cur->T_f_w_.rotation_matrix()*(frame_ref_->pos() + scale*(frame_cur->pos() - frame_ref_->pos()));
  //<<frame_cur->T_f_w_.translation()<<std::endl;
 
   // For each inlier create 3D point and add feature in both frames
@@ -249,8 +252,9 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
       new_point->addFrameRef(ftr_cur);
 
       Feature* ftr_ref(new Feature(frame_ref_.get(), new_point, px_ref, f_ref_[*it], 0));
-      frame_ref_->addFeature(ftr_ref);
+      frame_ref_->addFeature(ftr_ref);     
       new_point->addFrameRef(ftr_ref);
+      std::cout<<"actual point"<<new_point->pos_<<std::endl;
     }
   }
   return SUCCESS;
@@ -331,6 +335,8 @@ vector<int> outliers;
 
   // For each inlier create 3D point and add feature in both frames
   SE3 T_world_cur = frame_cur->T_f_w_.inverse();
+  std::cout<<"The workd current "<<T_world_cur<<std::endl;
+
   for(vector<int>::iterator it=inliers_.begin(); it!=inliers_.end(); ++it)
   {
     Vector2d px_cur(px_cur_[*it].x, px_cur_[*it].y);

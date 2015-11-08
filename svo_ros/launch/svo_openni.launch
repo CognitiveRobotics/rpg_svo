@@ -1,6 +1,12 @@
 <launch>
+    
+
+
+
+
+    
     <param name="/use_sim_time" value="true"/>
-     
+
     <node pkg="svo_ros" type="vo" name="svo" clear_params="true" output="screen">
 
         <!-- Camera topic to subscribe to -->
@@ -20,4 +26,6 @@
         <param name="init_rz" value="0.00" />
 
     </node>
+
+
 </launch>
