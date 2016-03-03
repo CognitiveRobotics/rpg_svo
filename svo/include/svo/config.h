@@ -119,6 +119,8 @@ public:
   /// If within one frame, this amount of features are dropped. Tracking quality is bad.
   static int& qualityMaxFtsDrop() { return getInstance().quality_max_drop_fts; }
 
+  static string& objectname() { return getInstance().obj_name; }
+
 private:
   Config();
   Config(Config const&);
@@ -152,6 +154,7 @@ private:
   size_t max_fts;
   size_t quality_min_fts;
   int quality_max_drop_fts;
+  string obj_name;
 };
 
 } // namespace svo

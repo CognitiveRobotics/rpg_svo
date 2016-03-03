@@ -47,14 +47,20 @@ InitResult KltHomographyInit::addFirstFrame(FramePtr frame_ref)
   reset();
   detectFeatures(frame_ref, px_ref_, f_ref_);
 
-  string path = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/ronzoni1";
+ /* string path = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/ronzoni1";
   string path_cr= "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/crayola_64_ct";
   string path_or= "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/orange_juice_carton_flo";
   string path_ss = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/soft_scrub";
-  string path_td = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/tide";
+  string path_td = "/home/prateek/catkin_ws/src/object_tracking_2d_ros/data/tide";*/
+
+
+
+  string path = Config::objectname();
+
+  std::cout<<"Frame number"<<frame_ref->id_<<std::endl;
 
   std::cout<<"loading keyframes"<<std::endl;
-  loadKeyframes(path_td,1);
+  loadKeyframes(path,1);
  // loadKeyframes(path_cr,2);
  // loadKeyframes(path_or,3);
   std::cout<<"loaded keyframes"<<std::endl;
@@ -82,7 +88,7 @@ InitResult KltHomographyInit::addFirstFrame(FramePtr frame_ref)
           F_pose = pose3;
 
   }
-  std::cout<<F_pose<<std::endl;
+ // std::cout<<F_pose<<std::endl;
 
 
   if(px_ref_.size() < 100)
@@ -153,6 +159,7 @@ double KltHomographyInit::computeInliers1(const vector<Vector3d>& features1, // 
     //<<"triangulate all features and compute reprojection errors and inliers"<<j<<std::endl;
   }
   return tot_error;
+
 }
 
 
@@ -173,6 +180,9 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   {
      return SUCCESS;
   }//*/
+
+
+  input_keypoints_2d_.clear();
 
   int num_corr = 6;
   int num_corr1 = 0;
@@ -199,7 +209,8 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
 
  // int num_corr = 6;
  // SE3 pose = estimatePose(num_corr,frame_cur);
-  std::cout<<"in second frme"<<pose<<"  first frame "<<F_pose<<std::endl;
+  //pose.rotation_matrix()
+  //std::cout<<"in second frme"<<pose.rotation_matrix()<<"   "<<pose.translation() <<"  first frame "<<F_pose.rotation_matrix()<<" "<<F_pose.translation()<<std::endl;
 
 
   T_cur_from_ref_ = pose*F_pose.inverse();
@@ -207,7 +218,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   //std::cout<<"whole pose diff"<<(pose.inverse()*F_pose).translation()<<std::endl;
 
   //T_cur_from_ref_ = T_cur_from_ref_.inverse();
-  std::cout<<"whole pose"<<T_cur_from_ref_<<std::endl;
+ // std::cout<<"whole pose"<<T_cur_from_ref_.rotation_matrix()<<"  "<<T_cur_from_ref_.translation()<<std::endl;
 
   computeHomography(
       f_ref_, f_cur_,
@@ -226,7 +237,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   for(size_t i=0; i<xyz_in_cur_.size(); ++i)
     depth_vec.push_back((xyz_in_cur_[i]).z());
   double scene_depth_median = vk::getMedian(depth_vec);
-  std::cout<<"scene depth "<<scene_depth_median<<"and keyframe number"<<keyframe_num<<"number of points"<<xyz_in_cur_.size()<<std::endl;
+  //std::cout<<"scene depth "<<scene_depth_median<<"and keyframe number"<<keyframe_num<<"number of points"<<xyz_in_cur_.size()<<std::endl;
   double scale = Config::mapScale()/scene_depth_median;
   scale =1;
   //scale = 12;
@@ -237,7 +248,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
 
   // For each inlier create 3D point and add feature in both frames
   SE3 T_world_cur = frame_cur->T_f_w_.inverse();
-  std::cout<<"The second frame is "<<T_world_cur<<std::endl;
+  //std::cout<<"The second frame is "<<T_world_cur<<std::endl;
   for(vector<int>::iterator it=inliers_.begin(); it!=inliers_.end(); ++it)
   {
     Vector2d px_cur(px_cur_[*it].x, px_cur_[*it].y);
@@ -254,7 +265,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
       Feature* ftr_ref(new Feature(frame_ref_.get(), new_point, px_ref, f_ref_[*it], 0));
       frame_ref_->addFeature(ftr_ref);     
       new_point->addFrameRef(ftr_ref);
-      std::cout<<"actual point"<<new_point->pos_<<std::endl;
+    //  std::cout<<"actual point"<<new_point->pos_<<std::endl;
     }
   }
   return SUCCESS;
@@ -370,8 +381,19 @@ vector<int> outliers;
 
 void KltHomographyInit::reset()
 {
-  px_cur_.clear();
-  frame_ref_.reset();
+    px_cur_.clear();
+    frame_ref_.reset();
+    inliers_.clear();
+    keyframe_keypoints_2d_.clear();
+    keyframe_keypoints_3d_.clear();
+    keyframe_descriptors_.clear();
+    keyframe_images_.clear();
+    input_keypoints_2d_.clear();
+    keypoints2D.clear();
+    keypoints3D.clear();
+
+    kfd_.clear();
+    keyframe_lut_.clear();
 }
 
 
@@ -411,6 +433,7 @@ void KltHomographyInit::loadKeyframes(string obj_name,int num)
   // Read keyframes - jpg & xml files
   //keyframe_images_.resize(num_keyframes_);
   //keyframe_poses_.resize(num_keyframes_);
+  std::vector<IplImage*> keyframe_images;
   std::vector<CvMat*> keyframe_keypoints_2d;
   std::vector<CvMat*> keyframe_keypoints_3d;
   std::vector<CvMat*> keyframe_descriptors;
@@ -419,16 +442,19 @@ void KltHomographyInit::loadKeyframes(string obj_name,int num)
   keyframe_keypoints_2d.resize(num_keyframes_);
   keyframe_keypoints_3d.resize(num_keyframes_);
   keyframe_descriptors.resize(num_keyframes_);
+  keyframe_images.resize(num_keyframes_);
+
 
   std::stringstream ss;
   for(int i=0; i<num_keyframes_; i++)
   {
-  /*  ss.str(std::string()); // cleaning ss
-    ss << data_dir << "/" << "keyframe" << std::setw(3) << std::setfill('0') << i + 1 << ".jpg";
-    keyframe_images_[i] = cvLoadImage(ss.str().c_str(), CV_LOAD_IMAGE_GRAYSCALE);
-    assert(keyframe_images_[i]);
-
     ss.str(std::string()); // cleaning ss
+    ss << data_dir << "/" << "keyframe" << std::setw(3) << std::setfill('0') << i + 1 << ".jpg";
+  //  keyframe_images[i] = cv::imread(ss.str().c_str());
+    keyframe_images[i] = cvLoadImage(ss.str().c_str(), CV_LOAD_IMAGE_GRAYSCALE);
+    assert(keyframe_images[i]);
+
+  /*  ss.str(std::string()); // cleaning ss
     ss << data_dir << "/" << "pose" << std::setw(3) << std::setfill('0') << i + 1 << ".xml";
     keyframe_poses_[i] = (CvMat*)cvLoad(ss.str().c_str());
     assert(keyframe_poses_[i]);*/
@@ -453,6 +479,8 @@ void KltHomographyInit::loadKeyframes(string obj_name,int num)
   keyframe_keypoints_2d_.push_back(keyframe_keypoints_2d);
   keyframe_keypoints_3d_.push_back(keyframe_keypoints_3d);
   keyframe_descriptors_.push_back(keyframe_descriptors);
+  keyframe_images_.push_back(keyframe_images);
+
 
 }
 
@@ -527,7 +555,7 @@ SE3 KltHomographyInit::estimatePose(int &num_of_corr,FramePtr frame_ref,int num)
   CvMemStorage* ms_ = cvCreateMemStorage(0);
   CvSeq *seq_keypoints_ = NULL;
   CvSeq *seq_descriptors_ =  NULL;
-  CvSURFParams surf_params_ = cvSURFParams(50, 3);;
+  CvSURFParams surf_params_ = cvSURFParams(200, 3);;
   vector<int> corr_;
 
   IplImage* img = new IplImage(frame_ref->img());
@@ -538,18 +566,35 @@ SE3 KltHomographyInit::estimatePose(int &num_of_corr,FramePtr frame_ref,int num)
   std::cout<<"here after extraction"<<std::endl;
 
 
-  findCorrespondenceNN_FLANN(seq_keypoints_, seq_descriptors_, corr_/*corr1_*/, keyframe_keypoints_2d_[num].size(),num);
+  int keyframe_idx_ = findCorrespondenceNN_FLANN(seq_keypoints_, seq_descriptors_, corr_/*corr1_*/, keyframe_keypoints_2d_[num].size(),num);
   std::cout<<"size of pt pairs with corr"<<corr_.size()<<std::endl;
 
+  vector<CvPoint2D32f> outliers_obj_2d_ ; //objOutliers;
+  vector<CvPoint2D32f> outliers_img_2d_ ; //imgOutliers;
+  vector<CvPoint2D32f> inliers_obj_2d_ ; //objInliers;
+  vector<CvPoint2D32f> inliers_img_2d_ ; //imgInliers;
+  vector<CvPoint3D32f> outliers_obj_3d_  ; //objOutliers3D;
+  vector<CvPoint3D32f>  inliers_obj_3d_ ; //imgOutliers3D;
+
+  //outliers_obj_2d_.resize(0);
+
+
+
   SE3 pose;
-  refineCorrespondenceEpnpRANSAC(corr_,frame_ref,pose,num);
-  num_of_corr = corr_.size();
+  num_of_corr = refineCorrespondenceEpnpRANSAC(corr_/*corr1_[i]*/, frame_ref,outliers_obj_2d_, outliers_obj_3d_, outliers_img_2d_, inliers_obj_2d_, inliers_obj_3d_, inliers_img_2d_, pose,num);
+
+
+  std::cout<<"Number of corr"<<num_of_corr<<std::endl;
+
+  //SE3 pose;
+  //refineCorrespondenceEpnpRANSAC(corr_,frame_ref,pose,num);
+  //num_of_corr = corr_.size();
 
   cvClearSeq(seq_keypoints_);
   cvClearSeq(seq_descriptors_);
   cvClearMemStorage(ms_);
 
-  return pose;
+ // return pose;
 
   // Refine the correspondences with RANSAC and estimate pose
  // for(int i=0;i<1;i++)
@@ -563,51 +608,57 @@ SE3 KltHomographyInit::estimatePose(int &num_of_corr,FramePtr frame_ref,int num)
  // } // Display inliers/outliers
 
   // If the number of correspondence is smaller than 4, finish
- /* if(num_of_corr < 4)
+  /*if(num_of_corr < 4)
   {
     printf("Insufficient matches...(%d)\n", num_of_corr);
     num_of_corr = 0;
-    cvSetIdentity(pose_);
+    cvSetIdentity(pose);
     return pose_;
-  }
+  }*/
 
- /* cvSetImageROI(img_result_, cvRect(0, 0, img_object_->width, img_object_->height));
-  cvCvtColor(keyframe_images_[keyframe_idx_], img_result_, CV_GRAY2BGR );
-  cvSetImageROI(img_result_, cvRect( img_object_->width, 0, img_input_->width, im g_input_->height ) );
-  cvCvtColor(img_input_, img_result_, CV_GRAY2BGR );
+ // IplImage* img_result_ = new IplImage(frame_ref->img());
+  IplImage* img_object_ = new IplImage(frame_ref->img());
+  IplImage* img_result_ = cvCreateImage(cvSize(img_object_->width*2, img_object_->height), 8, 3);
+
+
+  cvSetImageROI(img_result_, cvRect(0, 0, img_object_->width, img_object_->height));
+  cvCvtColor(keyframe_images_[0][keyframe_idx_], img_result_, CV_GRAY2BGR );
+  cvSetImageROI(img_result_, cvRect( img_object_->width, 0, img_object_->width, img_object_->height ) );
+  cvCvtColor(img_object_, img_result_, CV_GRAY2BGR );
   cvResetImageROI(img_result_);
-  cv::Mat poset(pose_);
- std::cout<<poset<<"here in the estimation"<<std::endl;
+  //cv::Mat poset(pose_);
+//  std::cout<<poset<<"here in the estimation"<<std::endl;//*/
 
-  for(int i=0; i<int(inliers_obj_2d_.size()); i++)
+ /* for(int i=0; i<int(inliers_obj_2d_.size()); i++)
     cvLine(img_result_, cvPointFrom32f(inliers_obj_2d_[i]),
-    cvPoint(cvRound(inliers_img_2d_[i].x)+img_object_->width, cvRound(inliers_img_2d_[i].y)), CV_RGB(0,255,0), 1, draw_type_, 0);
+    cvPoint(cvRound(inliers_img_2d_[i].x+img_object_->width), cvRound(inliers_img_2d_[i].y)), CV_RGB(0,255,0), 1, CV_AA, 0);
 
   for(int i=0; i<int(outliers_obj_2d_.size()); i++)
     cvLine(img_result_, cvPointFrom32f(outliers_obj_2d_[i]),
-    cvPoint(cvRound(outliers_img_2d_[i].x) + img_object_->width, cvRound(outliers_img_2d_[i].y)), CV_RGB(255,100,100), 1, draw_type_, 0);
+    cvPoint(cvRound(outliers_img_2d_[i].x+img_object_->width), cvRound(outliers_img_2d_[i].y)), CV_RGB(255,100,100), 1, CV_AA, 0); //*/
 
   // Draw object
-  obj_model_->displayPoseLine(img_result_, pose_, CV_RGB(255, 255, 0), 1, true); // on the right side
+ // obj_model_->displayPoseLine(img_result_, pose_, CV_RGB(255, 255, 0), 1, true); // on the right side
 
-    cvShowImage("Initilization", img_result_);
-
-
-
+  //  cvShowImage("Initilization", img_result_);
+//    cvWaitKey(0.1);
 
 
-  return pose_;*/
+
+
+
+  return pose;//*/
 }
 
 
 
-void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs/*vector< vector<int> >& ptpairs1*/, int numOfKeyframes, int num)
+int KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs/*vector< vector<int> >& ptpairs1*/, int numOfKeyframes, int num)
 {
 
   if(imageDescriptors->total == 0)
   {
     ptpairs.clear();
-    return;
+    return 0;
   }
  // vector<int> ptpairs;
   vector<CvPoint2D32f> input_keypoints_2d;
@@ -639,7 +690,7 @@ void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, 
   cv::Mat indices(kfd_[num].rows, 2, CV_32S);
   cv::Mat dists(kfd_[num].rows, 2, CV_32F);
 
-  cv::flann::Index flann_index(id, cv::flann::KDTreeIndexParams(8));  // using 4 randomized kdtrees
+  cv::flann::Index flann_index(id, cv::flann::KDTreeIndexParams(4));  // using 4 randomized kdtrees
   flann_index.knnSearch(kfd_[num], indices, dists, 2, cv::flann::SearchParams(64)); // maximum number of leafs
   std::cout<<"point pair size"<<indices.rows<<std::endl;
   ptpairs.clear();
@@ -707,6 +758,8 @@ void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, 
   }
 
   ptpairs = ptpairs_new;
+
+  return keyframe_idx_;
 //  std::cout<<ptpairs.size()<<std::endl;
 //  ptpairs1.push_back(ptpairs);
   //}
@@ -715,7 +768,8 @@ void KltHomographyInit::findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, 
 
 
 
-int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs, FramePtr frame_ref, SE3 &pose,int num)
+
+int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs, FramePtr frame_ref,vector<CvPoint2D32f> &objOutliers,vector<CvPoint3D32f> &objOutliers3D, vector<CvPoint2D32f> &imgOutliers, vector<CvPoint2D32f> &objInliers, vector<CvPoint3D32f> &objInliers3D, vector<CvPoint2D32f> &imgInliers, SE3 &pose,int num)
 {
   const int NOM = 7; // number of model parameters
 
@@ -724,19 +778,14 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
   int k = 100000;
   const int max_k = 50;
   int best_noi = 0;
-  const float th = 10;
+  const float th = 5;
   const double p = 0.99;
     std::cout<<" in refinement"<<ptpairs.size()/2<<std::endl;
   n = int(ptpairs.size()/2);
   if( n < 8 ) // at least 8 points are needed to estimate fundamental matrix
     return -1;
 
-  vector<CvPoint2D32f> objOutliers;
-  vector<CvPoint2D32f> imgOutliers;
-  vector<CvPoint2D32f> objInliers;
-  vector<CvPoint2D32f> imgInliers;
-  vector<CvPoint3D32f> objOutliers3D;
-  //vector<CvPoint2D32f>& imgOutliers3D;
+
 
 
   objOutliers.resize(n);
@@ -749,14 +798,14 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
     objOutliers3D[i] = keypoints3D[num][ptpairs[i*2]];
   }
 
-  std::cout<<"Outputting the intrinsics"<<frame_ref->cam_->errorMultiplier2()<<std::endl;
+ // std::cout<<"Outputting the intrinsics 123"<<frame_ref->cam_->errorMultiplier2()<<std::endl;
 
   epnp ePnP;
 
-  float fu = frame_ref->cam_->errorMultiplier2() ; //CV_MAT_ELEM(*intrinsic_, float, 0, 0);
-  float fv = frame_ref->cam_->errorMultiplier2() ; //CV_MAT_ELEM(*intrinsic_, float, 1, 1);
-  float uc = (frame_ref->cam_->width()/2) ; //CV_MAT_ELEM(*intrinsic_, float, 0, 2);
-  float vc = (frame_ref->cam_->height()/2); //fabs(frame_ref->cam_->cy());  //CV_MAT_ELEM(*intrinsic_, float, 1, 2);
+  float fu = 541.7084706800928;    //frame_ref->cam_->errorMultiplier2() ; //CV_MAT_ELEM(*intrinsic_, float, 0, 0);
+  float fv = 539.9289409636573;  //frame_ref->cam_->errorMultiplier2() ; //CV_MAT_ELEM(*intrinsic_, float, 1, 1);
+  float uc = 312.6945803266324; //(frame_ref->cam_->width()/2) ; //CV_MAT_ELEM(*intrinsic_, float, 0, 2);
+  float vc = 241.325960768061;  //(frame_ref->cam_->height()/2); //fabs(frame_ref->cam_->cy());  //CV_MAT_ELEM(*intrinsic_, float, 1, 2);
 
   vector<int> inlier_idx;
   inlier_idx.resize(n);
@@ -765,13 +814,16 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
 
   ePnP.set_internal_parameters(uc, vc, fu, fv);
   ePnP.set_maximum_number_of_correspondences(NOM);
+ // std::cout<<"Outputting the intrinsics 456 "<<frame_ref->cam_->errorMultiplier2()<<std::endl;
 
- /* CvRNG rng = cvRNG(cvGetTickCount());
+  CvRNG rng = cvRNG(cvGetTickCount());
   int rand_idx[NOM];
   CvMat* P = cvCreateMat(3,4,CV_32F);
   CvMat* P2 = cvCreateMat(3,4,CV_32F);
   CvMat* x3d_h = cvCreateMat(4, n, CV_32F);
   CvMat* x2d_proj = cvCreateMat(3, n, CV_32F);
+
+ // std::cout<<"Outputting the intrinsics 789"<<frame_ref->cam_->errorMultiplier2()<<std::endl;
 
   for(int i=0; i<n; i++)
   {
@@ -779,36 +831,40 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
     CV_MAT_ELEM(*x3d_h, float, 1, i) = objOutliers3D[i].y;
     CV_MAT_ELEM(*x3d_h, float, 2, i) = objOutliers3D[i].z;
     CV_MAT_ELEM(*x3d_h, float, 3, i) = 1.0;
-  }*/
+  }
 
   double R_est[3][3], T_est[3];
 
-  ePnP.reset_correspondences();
+  //std::cout<<"Outputting the intrinsics 546457"<<frame_ref->cam_->errorMultiplier2()<<std::endl;
+
+  /*ePnP.reset_correspondences();
   for(int i=0; i<NOM; i++)
   {
     ePnP.add_correspondence(objOutliers3D[i].x, objOutliers3D[i].y, objOutliers3D[i].z, imgOutliers[i].x, imgOutliers[i].y);
   }
   double err = ePnP.compute_pose(R_est, T_est);
 
-  std::cout<<R_est[0][0]<<T_est[0]<<std::endl;
+  std::cout<<R_est[0][0]<<T_est[0]<<std::endl;*/
 
-  MatrixXd Rotation(3,3);
-  Vector3d translation;
 
-  for(int i=0;i<3;i++)
-  {
-      for(int j=0;j<3;j++)
-      {
-          Rotation(i,j) = R_est[i][j];
-      }
-      translation(i) = T_est[i];
-  }
 
-  pose = SE3(Rotation,translation);
+  //return err;
 
-  return err;
 
-  /*
+  CvMat* intrinsic_ = cvCreateMat(3,3,CV_32F);
+
+  CV_MAT_ELEM(*intrinsic_, float, 0, 2) = 312.6945803266324;
+  CV_MAT_ELEM(*intrinsic_, float, 1, 2) = 241.325960768061;
+  CV_MAT_ELEM(*intrinsic_, float, 0, 0) = fu;
+  CV_MAT_ELEM(*intrinsic_, float, 1, 1) = fv;
+  CV_MAT_ELEM(*intrinsic_, float, 2, 2) = 1.0;
+  CV_MAT_ELEM(*intrinsic_, float, 0, 1) = 0.0;
+  CV_MAT_ELEM(*intrinsic_, float, 1, 0) = 0.0;
+  CV_MAT_ELEM(*intrinsic_, float, 2, 0) = 0.0;
+  CV_MAT_ELEM(*intrinsic_, float, 2, 1) = 0.0;
+
+
+ // std::cout<<"Outputting the intrinsics herer e"<<cv::Mat(intrinsic_)<<std::endl;
 
   while(iter < k && iter < max_k)
   {
@@ -817,9 +873,12 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
     {
       int temp_idx= 0;
       bool found = true;
+      //std::cout<<temp_idx<<"ere"<<std::endl;
       while(found)
       {
         temp_idx = cvRandInt(&rng) % n;
+     //   std::cout<<temp_idx<<"ere"<<std::endl;
+
         found = false;
         for(int j=0; j<i; j++)
         {
@@ -830,6 +889,8 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
       rand_idx[i] = temp_idx;
     }
     // model parameters fitted to rand_idx
+
+  //  std::cout<<"Outputting the intrinsics fdgdfg"<<frame_ref->cam_->errorMultiplier2()<<std::endl;
     ePnP.reset_correspondences();
     for(int i=0; i<NOM; i++)
     {
@@ -837,27 +898,35 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
     }
     double err = ePnP.compute_pose(R_est, T_est);
 
+ //   std::cout<<"number"<<iter<<" "<<R_est<<T_est<<std::endl;
+
     // project rest points into the image plane
-    CV_MAT_ELEM(*P, float, 0, 0) = R_est[0][0];
-    CV_MAT_ELEM(*P, float, 0, 1) = R_est[0][1];
-    CV_MAT_ELEM(*P, float, 0, 2) = R_est[0][2];
+    CV_MAT_ELEM(*P, float, 0, 0) = (float) R_est[0][0];
+    CV_MAT_ELEM(*P, float, 0, 1) = (float) R_est[0][1];
+    CV_MAT_ELEM(*P, float, 0, 2) = (float) R_est[0][2];
 
-    CV_MAT_ELEM(*P, float, 1, 0) = R_est[1][0];
-    CV_MAT_ELEM(*P, float, 1, 1) = R_est[1][1];
-    CV_MAT_ELEM(*P, float, 1, 2) = R_est[1][2];
+    CV_MAT_ELEM(*P, float, 1, 0) = (float) R_est[1][0];
+    CV_MAT_ELEM(*P, float, 1, 1) = (float) R_est[1][1];
+    CV_MAT_ELEM(*P, float, 1, 2) = (float) R_est[1][2];
 
-    CV_MAT_ELEM(*P, float, 2, 0) = R_est[2][0];
-    CV_MAT_ELEM(*P, float, 2, 1) = R_est[2][1];
-    CV_MAT_ELEM(*P, float, 2, 2) = R_est[2][2];
+    CV_MAT_ELEM(*P, float, 2, 0) = (float) R_est[2][0];
+    CV_MAT_ELEM(*P, float, 2, 1) = (float) R_est[2][1];
+    CV_MAT_ELEM(*P, float, 2, 2) = (float) R_est[2][2];
 
-    CV_MAT_ELEM(*P, float, 0, 3) = T_est[0];
-    CV_MAT_ELEM(*P, float, 1, 3) = T_est[1];
-    CV_MAT_ELEM(*P, float, 2, 3) = T_est[2];
+    CV_MAT_ELEM(*P, float, 0, 3) = (float) T_est[0];
+    CV_MAT_ELEM(*P, float, 1, 3) = (float) T_est[1];
+    CV_MAT_ELEM(*P, float, 2, 3) = (float) T_est[2];
 
+  //   std::cout<<"number"<<iter<<" "<<R_est<<T_est<<std::endl;
+//
     cvGEMM(intrinsic_, P, 1, NULL, 0, P2, 0);
+
+
 
     // x2d_proj = P * x3d_h
     cvGEMM(P2, x3d_h, 1, NULL, 0, x2d_proj, 0);
+
+  ////   std::cout<<"number"<<iter<<" "<<R_est<<T_est<<std::endl;
 
 
     for(int i=0; i<n; i++)
@@ -872,18 +941,24 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
       CV_MAT_ELEM(*x2d_proj, float, 2, i) = sqrt((u/w - imgOutliers[i].x)*(u/w - imgOutliers[i].x) + (v/w - imgOutliers[i].y)*(v/w - imgOutliers[i].y));
     }
 
+
+//  std::cout<<"number 234234  "<<iter<<" "<<R_est<<T_est<<std::endl;
     // Count number of inliers
     int noi = 0;
     for(int i=0; i<n; i++)
     {
-      if(rand_idx[i] != i && CV_MAT_ELEM(*x2d_proj, float, 2, i)  < th)
+ //      std::cout<<"number 234234 "<<" "<<CV_MAT_ELEM(*x2d_proj, float, 2, i)<<" "<<i<<std::endl;
+        if( CV_MAT_ELEM(*x2d_proj, float, 2, i)  < th*th)
       {
         inlier_idx[i] = 1;
         noi++;
+//        std::cout<<"number "<<" "<<CV_MAT_ELEM(*x2d_proj, float, 2, i)<<"  "<<i <<std::endl;
+          // Count number of inliers
       }
       else
         inlier_idx[i] = 0;
     }
+//   std::cout<<"number 234234"<<iter<<" "<<R_est<<T_est<<std::endl;
 
     if(noi > best_noi)
     {
@@ -892,12 +967,12 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
       best_noi = noi;
       best_inlier_idx = inlier_idx;
       // Determine adaptive number of iteration
-      double e = 1. - (double)best_noi/(double)n;
-      k = (int)(log(1. - p)/log(1. - pow(1.-e, NOM)));
+    //  double e = 1. - (double)best_noi/(double)n;
+    //  k = (int)(log(1. - p)/log(1. - pow(1.-e, NOM)));
     }
-
+ //   std::cout<<"number 2334"<<iter<<" "<<R_est<<T_est<<std::endl;
     iter++;
-    if(verbose_) printf("(%d/%d) iter: %d/%d\n", iter, k, best_noi, n);
+    if(0) printf("(%d/%d) iter: %d/%d\n", iter, k, best_noi, n);
   }
 
   if(best_noi > 0)
@@ -912,7 +987,7 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
 
     double err = ePnP.compute_pose(R_est, T_est);
 
-    CV_MAT_ELEM(*pmPose, float, 0, 0) = R_est[0][0];
+   /* CV_MAT_ELEM(*pmPose, float, 0, 0) = R_est[0][0];
     CV_MAT_ELEM(*pmPose, float, 1, 0) = R_est[1][0];
     CV_MAT_ELEM(*pmPose, float, 2, 0) = R_est[2][0];
     CV_MAT_ELEM(*pmPose, float, 3, 0) = 0.0;
@@ -927,7 +1002,7 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
     CV_MAT_ELEM(*pmPose, float, 0, 3) = T_est[0];
     CV_MAT_ELEM(*pmPose, float, 1, 3) = T_est[1];
     CV_MAT_ELEM(*pmPose, float, 2, 3) = T_est[2];
-    CV_MAT_ELEM(*pmPose, float, 3, 3) = 1.0;
+    CV_MAT_ELEM(*pmPose, float, 3, 3) = 1.0;*/
   }
 
   // Display estimated pose
@@ -962,12 +1037,30 @@ int KltHomographyInit::refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs
   imgOutliers = pt2_out;
   objOutliers3D = pt3_out;
 
+
+  MatrixXd Rotation(3,3);
+  Vector3d translation;
+
+  for(int i=0;i<3;i++)
+  {
+      for(int j=0;j<3;j++)
+      {
+          Rotation(i,j) = R_est[i][j];
+      }
+      translation(i) = T_est[i];
+  }
+
+  pose = SE3(Rotation,translation);
+
+
+
+
   cvReleaseMat(&P);
   cvReleaseMat(&P2);
   cvReleaseMat(&x3d_h);
   cvReleaseMat(&x2d_proj);
 
-  return int(objInliers.size());*/
+  return int(objInliers.size());//*/
 }
 
 

@@ -38,8 +38,8 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   FramePtr frame_ref_;
-  KltHomographyInit() { cv::initModule_nonfree();}; // for SURF feature};
-  ~KltHomographyInit() {};
+  KltHomographyInit() { cv::initModule_nonfree(); } // for SURF feature};
+  ~KltHomographyInit() {}
   InitResult addFirstFrame(FramePtr frame_ref);
   Vector3d triangulateFeatureNonLin1(const Matrix3d& R,  const Vector3d& t,
                                     const Vector3d& feature1, const Vector3d& feature2 );
@@ -57,9 +57,10 @@ public:
   void reset();
   void loadKeyframes(string path, int num);
   void buildKdTree(int num);
-  void findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs, int numOfKeyframes, int num);
+  int findCorrespondenceNN_FLANN(const CvSeq* imageKeypoints, const CvSeq* imageDescriptors, vector<int>& ptpairs, int numOfKeyframes, int num);
   SE3 estimatePose(int &num_of_corr, FramePtr frame_ref, int num);
-  int refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs, FramePtr frame_ref, SE3 &pose, int num);
+  //int refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs, FramePtr frame_ref, SE3 &pose, int num);
+  int refineCorrespondenceEpnpRANSAC(const vector<int>& ptpairs, FramePtr frame_ref,vector<CvPoint2D32f> &objOutliers,vector<CvPoint3D32f> &objOutliers3D, vector<CvPoint2D32f> &imgOutliers, vector<CvPoint2D32f> &objInliers, vector<CvPoint3D32f> &objInliers3D, vector<CvPoint2D32f> &imgInliers, SE3 &pose,int num);
 
 protected:
   vector<cv::Point2f> px_ref_;      //!< keypoints to be tracked in reference frame.
@@ -76,6 +77,7 @@ protected:
   std::vector< std::vector<CvMat*> >     keyframe_keypoints_3d_;
 
   std::vector< std::vector<CvMat*> >     keyframe_descriptors_;
+  std::vector< std::vector<IplImage*> >    keyframe_images_;
 
 
   vector<vector<CvPoint2D32f>> keypoints2D;

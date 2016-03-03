@@ -65,10 +65,11 @@ public:
   int init_flag;
   int num_frames;
   double scale_new;
+  std::fstream filename; 
 
   Visualizer();
 
-  ~Visualizer() {};
+  ~Visualizer() {filename.close();};
 
   void publishMinimal(
       const cv::Mat& img,

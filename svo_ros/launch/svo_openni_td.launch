@@ -16,7 +16,7 @@
         <rosparam file="$(find svo_ros)/param/openni.yaml" />
 
         <!-- Default parameter settings: choose between vo_fast and vo_accurate -->
-        <rosparam file="$(find svo_ros)/param/vo_accurate.yaml" />
+        <rosparam file="$(find svo_ros)/param/vo_accurate_td.yaml" />
 
         <param name="publish_world_in_cam_frame_" value="false" />
 

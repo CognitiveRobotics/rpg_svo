@@ -101,6 +101,7 @@ bool FrameHandlerBase::startFrameProcessingCommon(const double timestamp)
   SVO_DEBUG_STREAM("New Frame");
   SVO_START_TIMER("tot_time");
   timer_.start();
+  cvNamedWindow("Initilization",CV_WINDOW_OPENGL);
 
   // some cleanup from last iteration, can't do before because of visualization
   map_.emptyTrash();
@@ -132,7 +133,7 @@ int FrameHandlerBase::finishFrameProcessingCommon(
 #endif
 //std::cout<<"Frame finish processing start"<<set_reset_<<" "<<stage_<<std::endl;
 
-if (dropout == RESULT_FAILURE)
+    if (dropout == RESULT_FAILURE)
     resetAll();
 
   if(dropout == RESULT_FAILURE &&
@@ -159,6 +160,7 @@ void FrameHandlerBase::resetCommon()
   set_start_ = false;
   tracking_quality_ = TRACKING_INSUFFICIENT;
   num_obs_last_ = 0;
+  std::cout<<"RESET"<<std::endl;
   SVO_INFO_STREAM("RESET");
 }
 

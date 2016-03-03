@@ -191,7 +191,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
                            30, SparseImgAlign::GaussNewton, false, false);
   size_t img_align_n_tracked = img_align.run(last_frame_, new_frame_);
   SVO_STOP_TIMER("sparse_img_align");
-   std::cout<<"sparse_img_align"<<img_align_n_tracked<<std::endl;
+ //  std::cout<<"sparse_img_align"<<img_align_n_tracked<<std::endl;
   SVO_LOG(img_align_n_tracked);
   SVO_DEBUG_STREAM("Img Align:\t Tracked = " << img_align_n_tracked);
 
@@ -202,7 +202,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   const size_t repr_n_new_references = reprojector_.n_matches_;
   const size_t repr_n_mps = reprojector_.n_trials_;
   SVO_LOG2(repr_n_mps, repr_n_new_references);
-  std::cout<<"Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references<<std::endl;
+ // std::cout<<"Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references<<std::endl;
   if(repr_n_new_references < Config::qualityMinFts())
   {
     SVO_WARN_STREAM_THROTTLE(1.0, "Not enough matched features.");
@@ -222,7 +222,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   SVO_STOP_TIMER("pose_optimizer");
   SVO_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
   //<<"PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh<<std::endl;
-  std::cout<<"PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final<<std::endl;;
+//  std::cout<<"PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final<<std::endl;;
 
   if(sfba_n_edges_final < 20)
     return RESULT_FAILURE;

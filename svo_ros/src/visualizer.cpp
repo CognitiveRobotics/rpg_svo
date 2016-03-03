@@ -35,6 +35,9 @@
 #include <algorithm>
 #include <svo_msgs/DenseInput.h>
 
+
+//extern global std::fstream filename;
+
 namespace svo {
 
 Visualizer::
@@ -48,6 +51,8 @@ Visualizer() :
     publish_map_every_frame_(vk::getParam<bool>("svo/publish_map_every_frame", false)),
     publish_points_display_time_(vk::getParam<double>("svo/publish_point_display_time", 0)),
     T_world_from_vision_(Matrix3d::Identity(), Vector3d::Zero())
+   // filename(fstream )
+
 {
   // Init ROS Marker Publishers
   pub_frames_ = pnh_.advertise<visualization_msgs::Marker>("keyframes", 10);
@@ -56,8 +61,9 @@ Visualizer() :
   pub_info_ = pnh_.advertise<svo_msgs::Info>("info", 10);
   pub_dense_ = pnh_.advertise<svo_msgs::DenseInput>("dense_input",10);
   init_flag =0;
-  num_frames = 0;
+  int num_frames = 0;
   // create video publisher
+  filename.open("/home/prateek/data.txt",std::ofstream::out);
   image_transport::ImageTransport it(pnh_);
   pub_images_ = it.advertise("image", 10);
 }
@@ -231,7 +237,11 @@ void Visualizer::visualizeMarkers(
  {
       SE3 curr_pos  = T_world_from_vision_*frame->T_f_w_.inverse();
       curr_pos.translation() = (curr_pos.translation()); //*scale_new);
-      std::cout<<"SVO at current time"<<curr_pos.translation()<<std::endl;
+      num_frames+=1;
+  //    std::cout<<"SVO at current time"<<num_frames<<" "<<curr_pos.translation()<<std::endl;
+      Vector3d transl = curr_pos.translation();
+      Matrix3d rot =  curr_pos.rotation_matrix();
+  //    filename<<transl(0)<<" "<<transl(1)<<" "<<transl(2)<<" "<<rot(0,0)<<" "<<rot(0,1)<<" "<<rot(0,2)<<" "<<rot(1,0)<<" "<<rot(1,1)<<" "<<rot(1,2)<<" "<<rot(2,0)<<" "<<rot(2,1)<<" "<<rot(2,2)<<std::endl;
   vk::output_helper::publishTfTransform(
      curr_pos,
       ros::Time(frame->timestamp_), "odom", "cam_pos", br_);
@@ -240,7 +250,7 @@ void Visualizer::visualizeMarkers(
    {   vk::output_helper::publishTfTransform(
           T_world_from_vision_*frame->T_f_w_.inverse(),
           ros::Time(frame->timestamp_), "odom", "cam_pos", br_);
-      num_frames+=1;
+     // num_frames+=1;
     }
   if(pub_frames_.getNumSubscribers() > 0 || pub_points_.getNumSubscribers() > 0)
   {

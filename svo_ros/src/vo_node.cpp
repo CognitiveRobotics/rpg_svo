@@ -58,6 +58,8 @@ public:
   std::string remote_input_;
   vk::AbstractCamera* cam_;
   bool quit_;
+  int num_frames;
+  //int num_frames1;
   VoNode();
   ~VoNode();
   void imgCb(const sensor_msgs::ImageConstPtr& msg);
@@ -72,6 +74,8 @@ VoNode::VoNode() :
   publish_dense_input_(vk::getParam<bool>("svo/publish_dense_input", false)),
   remote_input_(""),
   cam_(NULL),
+  num_frames(0),
+ // num_frames1(0),
   quit_(false)
 {
   // Start user input thread in parallel thread that listens to console keys
@@ -116,6 +120,9 @@ void VoNode::imgCb(const sensor_msgs::ImageConstPtr& msg)
   //<<"Geting image"<<std::endl;
   vo_->addImage(img, msg->header.stamp.toSec());
 
+  //num_frames+=1;
+ // std::cout<<"image_num"<<num_frames<<std::endl;
+  num_frames+=1;
 
   if((vo_->stage() == FrameHandlerMono::STAGE_SECOND_FRAME) && !flag)
   {    //<<"the second frame"<<msg->header.stamp<<std::endl;
@@ -133,7 +140,7 @@ void VoNode::imgCb(const sensor_msgs::ImageConstPtr& msg)
   }
 
   visualizer_.publishMinimal(img, vo_->lastFrame(), *vo_, msg->header.stamp.toSec());
-   visualizer_.visualizeMarkers(vo_->lastFrame(), vo_->coreKeyframes(), vo_->map());
+  // visualizer_.visualizeMarkers(vo_->lastFrame(), vo_->coreKeyframes(), vo_->map());
 
   if(publish_markers_ && vo_->stage() != FrameHandlerBase::STAGE_PAUSED)
     visualizer_.visualizeMarkers(vo_->lastFrame(), vo_->coreKeyframes(), vo_->map());
